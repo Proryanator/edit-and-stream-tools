@@ -9,9 +9,9 @@ allFormats="($inputFormats|${inputFormats^^})"
 windowsFFMPEG="/mnt/f/Programs/ffmpeg-4.3.2-2021-02-02-essentials_build/bin/ffmpeg.exe"
 
 # keep track of files that might have integrity problems here
-fileErrors="/mnt/f/Videos/CompressionErrors/fileIntegrityErrors.log"
+fileErrors="/mnt/f/Videos/compressionscripts/hevctool-log.log"
 
-directoryToDeleteStuff="/mnt/f/Videos/CompressionErrors/hevc_deletion_pile"
+directoryToDeleteStuff="/mnt/f/Videos/compressionscripts/hevc_deletion_pile"
 
 function hevcLog(){
   printf "hevctool@$(date +%R): $1\n"
