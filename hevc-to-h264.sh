@@ -15,6 +15,10 @@ function log(){
   printf "hevctool@$(date +%R): $1\n"
 }
 
+function getBytes(){
+  echo $(wc -c "$1" | awk '{print $1}')
+}
+
 ####################### MAIN ########################
 if test -z "$1" || test -z "$2"; then
   printf "Usage: hevctoh264 folderToProcess outputDirectory\n"
@@ -62,10 +66,10 @@ do
   
   # does the file have any data? If no then it failed to be created
   fileSize=$(getBytes "$newFile")
-  hevcLog "New file size: $fileSize bytes"
+  log "New file size: $fileSize bytes"
   
   if [ "$fileSize" = "0" ]; then
-    hevcLog "Encode must have failed mid way, file was empty: '$newFile'" >> $hevctoh264log
+    log "Encode must have failed mid way, file was empty: '$newFile'" >> $hevctoh264log
     continue
   fi
   
@@ -73,9 +77,9 @@ do
   eval "$windowsFFMPEG -v error -i '$newFile' -f null - 2>integrity-error.log"
   anyErrors=$(grep 'error' "integrity-error.log")
   if test -z "$anyErrors"; then
-    hevcLog "No integrity issues found with file: '$newFile'"
+    log "No integrity issues found with file: '$newFile'"
   else
-    hevcLog "Integrity issue found with file: '$newFile'" >> $hevctoh264log
+    log "Integrity issue found with file: '$newFile'" >> $hevctoh264log
   fi
   
   rm -rf error.log
