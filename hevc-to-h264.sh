@@ -20,8 +20,8 @@ function getBytes(){
 }
 
 ####################### MAIN ########################
-if test -z "$1" || test -z "$2"; then
-  printf "Usage: hevctoh264 folderToProcess outputDirectory\n"
+if test -z "$1"; then
+  printf "Usage: hevctoh264 folderToProcess\n"
   printf "\tA tool to almost losslessly encode from h265 to h264\n"
   exit
 fi
@@ -55,12 +55,11 @@ touch $hevctoh264log
 for file in "${filesToEncode[@]}"
 do
   log "Original file: '$file'"
-  filename=$(basename -- "$file")
-  newFile="${outputDirectory}/${filename}_H264.mp4"
+  newFile="${file}_H264.mp4"
   
   # can we do a more robust way to change the file extension here?
   log "Encoding video to: '$newFile'"
-  command="$windowsFFMPEG -y -i '$file' -map 0:v -map 0:a -c:v libx264 -rc constqp -qp 24 -b:v 0K -c:a aac -b:a 384k '$newFile'"
+  command="$windowsFFMPEG -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v h264_nvenc -rc constqp -qp 24 -b:v 0K -c:a aac -b:a 384k '$newFile'"
   log "Executing [$command]"
   eval "$command"
   
