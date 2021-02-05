@@ -59,7 +59,7 @@ do
   
   # can we do a more robust way to change the file extension here?
   log "Encoding video to: '$newFile'"
-  command="$windowsFFMPEG -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v h264_nvenc -rc constqp -qp 24 -b:v 0K -c:a aac -b:a 384k '$newFile'"
+  command="$windowsFFMPEG -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v h264_nvenc -rc constqp -qp 16 -b:v 0K -c:a aac -b:a 384k '$newFile'"
   log "Executing [$command]"
   eval "$command"
   
