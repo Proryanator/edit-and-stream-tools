@@ -1,1 +1,1 @@
-docker build --no-cache . -t proryanator/eas
+docker build --no-cache . -t proryanator/hevctoh264sniffer

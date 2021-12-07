@@ -1,8 +1,9 @@
 FROM jrottenberg/ffmpeg
-COPY scripts/*.sh tools/
+COPY scripts/*.sh .
 COPY watchforfiles.sh .
 
 # make all tools in there executeable
-RUN find tools -type f -iname "*.sh" -exec chmod +x {} \;
+RUN find . -type f -iname "*.sh" -exec chmod +x {} \;
 
-ENTRYPOINT ./watchforfiles.sh
+# ENTRYPOINT ./watchforfiles.sh
+ENTRYPOINT ./hevc-to-h264.sh /input /output /originals
