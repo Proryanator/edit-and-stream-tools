@@ -19,7 +19,7 @@ filesToEncode=()
 
 # stores any error encountered in this errors file
 fileErrors="$outputDirectory/errors.log"
-integrityErrors="$outputDirectory/integrity.log"
+tmpErrorsFile="$outputDirectory/integrity.log"
 
 # pre-defined supported encoding formats
 H264_ENCODING="h264"
@@ -28,6 +28,12 @@ HEVC_ENCODING="hevc"
 # arguments to convert TO the specified format
 HEVC_ARGS="-y -hwaccel auto -map 0:v -map 0:a -c:v hevc_nvenc -rc constqp -qp 24 -b:v 0K -c:a aac -b:a 384k"
 H264_ARGS="-y -hwaccel auto -map 0:v -map 0:a -c:v h264_nvenc -rc constqp -qp 16 -b:v 0K -c:a aac -b:a 384k"
+
+# my url https://discord.com/api/webhooks/917858116434022420/nM_BwM-b9XiucTntf6uww22dsZlmB4LvWLOLNywR14aWD0wvLNLtBgYwoieoI5ceRslk
+
+# pre-defined DISCORD messages
+DISCORD_ERRORS="Errors were encountered during the last encoding session, please check the logs for more information."
+DISCORD_SUCCESS="Successfully encoded input files."
 
 # uses a pre-defined prefix for the log prefix
 function log(){
@@ -70,6 +76,7 @@ function processFiles(){
 
   # create error file if it doesn't exist
   touch $fileErrors
+  touch $tmpErrorsFile
 
   # now begin the actual encoding on each of the files
   for file in "${filesToEncode[@]}"
@@ -86,19 +93,20 @@ function processFiles(){
     # can we do a more robust way to change the file extension here?
     log "Encoding video to: '$newFile'"
     args=$(getArgsFrom "$outputFileEncoding")
-    # original hevc to h264 GPU command
     command="ffmpeg -i '$file' $args '$newFile'"
     log "Executing [$command]"
     eval "$command"
 
     # does the file have any data? If no then it failed to be created
     fileSize=$(getBytes "$newFile")
-    log "New file size: $fileSize bytes"
 
     if [ "$fileSize" = "0" ] || test -z "$fileSize"; then
-      log "Encode must have failed mid way, file was empty: '$newFile'" >> $fileErrors
+      log "Something went wrong when trying to encode file: '$newFile'" >> $fileErrors
+      log "Something went wrong when trying to encode file: '$newFile'" >> $tmpErrorsFile
       continue
     fi
+
+    log "New file size: $fileSize bytes"
 
     # if '-d' was not specified, skip
     if test -z "$4"; then
@@ -114,13 +122,18 @@ function processFiles(){
     fi
 
     # verify the integrity of the newly created video file
-    eval "ffmpeg -v error -i '$newFile' -f null - 2>$integrityErrors"
-    anyErrors=$(grep 'error' "$integrityErrors")
+    integrityErrorsFile="$outputDirectory/integrityFileErrors.log"
+    eval "ffmpeg -v error -i '$newFile' -f null - 2>$integrityErrorsFile"
+    anyErrors=$(grep 'error' "$integrityErrorsFile")
     if test -z "$anyErrors"; then
       log "No integrity issues found with file: '$newFile'"
     else
       log "Integrity issue found with file: '$newFile'" >> $fileErrors
+      log "Integrity issue found with file: '$newFile'" >> $tmpErrorsFile
     fi
+
+    # clear the integrity errors file
+    rm -rf "$integrityErrorsFile"
 
     # move original to avoid re-encoding
     log "Moving file '$file' into folder pending deletion: [$originalsDirectory]"
@@ -130,9 +143,13 @@ function processFiles(){
     # finally move the finished encoded product to the outputs directory
     log "Moving finished file '$newFile' to output directory: [$outputDirectory]"
     mv "$newFile" "$outputDirectory/$newFileName"
-
-    rm -rf error.log
   done
+
+  # notify discord if supported about what happened
+  notifyDiscordIfProvided "$outputEncoding" "$tmpErrorsFile"
+
+  # clear the temporary log file
+  rm -rf "$tmpErrorsFile"
 }
 
 # based on your target encoding format, returns pre-set args for ffmpeg
@@ -147,4 +164,25 @@ function getArgsFrom(){
   fi
 
   echo "$args"
+}
+
+# input: encodingOutput, errors
+function notifyDiscordIfProvided(){
+  encodingOutput="$1"
+  errors="$2"
+
+  if test -z "${DISCORD_WEBHOOK}"; then
+    echo "Notifications to Discord not configured."
+    return
+  fi
+
+  echo "Sending notifications to discord..."
+  msg=""
+  if test -z "$errors"; then
+    msg="$DISCORD_ERRORS"
+  else
+    msg="$DISCORD_SUCCESS"
+  fi
+
+  curl -i -H "Accept: application/json" -H "Content-Type:application/json" -X POST --data "{\"content\": \"$msg\"}" "$DISCORD_WEBHOOK"
 }

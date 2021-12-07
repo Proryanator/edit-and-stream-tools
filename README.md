@@ -25,8 +25,13 @@ builddockerimage.sh
 
 ## Running the sniffer
 
-You can run the sniffer simly via
-If you so desire, you can hook this into your discord server to alert you when video processing is finished.
+Since there is input/output file configured, you can run `autofileencoder.sh`.
+If your directories are different than the pre-defined ones, you can change the file as you like,
+or copy the provided docker run command and change your directories.
+
+Same goes for if you'd like to pass in a discord webhook!
+
+Passing a discord web hook to the .sh file:
 ```bash
-docker run -t proryanator/hevctoh264sniffer -env DISCORD_WEBHOOK=YOURWEBHOOK
+./autofileencoder.sh YOURWEBHOOK
 ```
