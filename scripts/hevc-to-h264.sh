@@ -4,12 +4,8 @@
 inputFormats="mp4|m4v|avi|mov|MOV|wmv|ts|m2ts|mkv|mts"
 allFormats="($inputFormats|${inputFormats^^})"
 
-# yeah, this is the only way to invoke the windows ffmpeg command
-# otherwise I can't do GPU encoding without some potential weird side-effects
-windowsFFMPEG="/mnt/f/Programs/ffmpeg-4.3.2-2021-02-02-essentials_build/bin/ffmpeg.exe"
-
 # keep track of files that might have integrity problems here
-hevctoh264log="/mnt/f/Videos/compressionscripts/hevctoh264-log.log"
+hevctoh264log="hevctoh264-log.log"
 
 function log(){
   printf "hevctool@$(date +%R): $1\n"
@@ -59,7 +55,9 @@ do
   
   # can we do a more robust way to change the file extension here?
   log "Encoding video to: '$newFile'"
-  command="$windowsFFMPEG -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v h264_nvenc -rc constqp -qp 16 -b:v 0K -c:a aac -b:a 384k '$newFile'"
+  # original GPU accelerated command
+  # command="ffmpeg -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v h264_nvenc -rc constqp -qp 16 -b:v 0K -c:a aac -b:a 384k '$newFile'"
+  command="ffmpeg -y auto -i '$file' '$outputDirectory/$newFile'"
   log "Executing [$command]"
   eval "$command"
   
@@ -73,7 +71,7 @@ do
   fi
   
   # verify the integrity of the newly created video file
-  eval "$windowsFFMPEG -v error -i '$newFile' -f null - 2>integrity-error.log"
+  eval "ffmpeg -v error -i '$newFile' -f null - 2>integrity-error.log"
   anyErrors=$(grep 'error' "integrity-error.log")
   if test -z "$anyErrors"; then
     log "No integrity issues found with file: '$newFile'"

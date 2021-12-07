@@ -4,14 +4,8 @@
 inputFormats="mp4|m4v|avi|mov|MOV|wmv|ts|m2ts|mkv|mts"
 allFormats="($inputFormats|${inputFormats^^})"
 
-# yeah, this is the only way to invoke the windows ffmpeg command
-# otherwise I can't do GPU encoding without some potential weird side-effects
-windowsFFMPEG="/mnt/f/Programs/ffmpeg-4.3.2-2021-02-02-essentials_build/bin/ffmpeg.exe"
-
 # keep track of files that might have integrity problems here
-fileErrors="/mnt/f/Videos/compressionscripts/hevctool-log.log"
-
-directoryToDeleteStuff="/mnt/f/Videos/compressionscripts/hevc_deletion_pile"
+fileErrors="hevctool-log.log"
 
 function hevcLog(){
   printf "hevctool@$(date +%R): $1\n"
@@ -24,14 +18,16 @@ function getBytes(){
 ########################### MAIN ####################################
 
 if test -z "$1"; then
-  printf "Usage: hevctools folderToProcess [-m]\n"
+  printf "Usage: hevctools folderToProcess outputLocation originals -d\n"
   printf "A tool to compress all the videos found in the folder to H265/HEVC\n"
-  printf "\t-m\tMoves the original file to $directoryToDeleteStuff if no errors were found in the resulting file.\n"
+  prinft "-d\tdelete the newly generated file if it's larger than the original"
   exit
 fi
 
 hevcLog "Looking for video containers of: $allFormats..."
 inputDirectory=$1
+outputDirectory=$2
+originalsDirectory=$3
 
 IFS=$'\n' allMediaFiles=($(find "$inputDirectory" -regextype posix-extended -regex ".*\.$allFormats" -type f))
 hevcLog "Found ${#allMediaFiles[@]} video files in [$inputDirectory]"
@@ -66,7 +62,8 @@ do
   
   # can we do a more robust way to change the file extension here?
   hevcLog "Encoding video to: '$newFile'"
-  command="$windowsFFMPEG -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v hevc_nvenc -rc constqp -qp 24 -b:v 0K -c:a aac -b:a 384k '$newFile'"
+  # command="ffmpeg -y -hwaccel auto -i '$file' -map 0:v -map 0:a -c:v hevc_nvenc -rc constqp -qp 24 -b:v 0K -c:a aac -b:a 384k '$newFile'"
+  command="ffmpeg -y -i '$file' -c:v libx265 -vtag hvc1 '$newFile'"
   hevcLog "Executing [$command]"
   eval "$command"
   
@@ -78,32 +75,36 @@ do
     hevcLog "Encode must have failed mid way, file was empty: '$newFile'" >> $fileErrors
     continue
   fi
-  
-  # was the file size of the new file larger?
-  if [ "$originalFileSize" \< "$fileSize" ]; then
-    hevcLog "New file size was actually larger than the original, deleting the new file $newFile" >> $fileErrors
-    rm -rf "$newFile"
-    continue
+
+  if test -z "$4"; then
+    hevcLog "Ignoring newly encoded file size."
+  else
+    # was the file size of the new file larger?
+    if [ "$originalFileSize" \< "$fileSize" ]; then
+      hevcLog "New file size was actually larger than the original, deleting the new file $newFile" >> $fileErrors
+      rm -rf "$newFile"
+      continue
+    fi
   fi
   
   # verify the integrity of the newly created video file
-  eval "$windowsFFMPEG -v error -i '$newFile' -f null - 2>integrity-error.log"
+  eval "ffmpeg -v error -i '$newFile' -f null - 2>integrity-error.log"
   anyErrors=$(grep 'error' "integrity-error.log")
   if test -z "$anyErrors"; then
     hevcLog "No integrity issues found with file: '$newFile'"
-    
-    # if you so choose, you can delete the original file now
-    if test -z "$2"; then
-      hevcLog "Keeping the original file."
-    else
-      hevcLog "Moving file '$file' into folder pending deletion: [$directoryToDeleteStuff]"
-      mkdir -p "$directoryToDeleteStuff"
-      filename=$(basename -- "$file")
-      mv "$file" "$directoryToDeleteStuff/$filename"
-    fi
   else
     hevcLog "Integrity issue found with file: '$newFile'" >> $fileErrors
   fi
+
+  # move original to avoid re-encoding
+  hevcLog "Moving file '$file' into folder pending deletion: [$originalsDirectory]"
+  mkdir -p "$originalsDirectory"
+  filename=$(basename -- "$file")
+  mv "$file" "$originalsDirectory/$filename"
+
+  # finally move the finished encoded product to the outputs directory
+  hevcLog "Moving finished file '$newFile' to output directory: [$outputDirectory]"
+  mv "$newFile" "$outputDirectory/$filename"
   
   rm -rf error.log
 done
